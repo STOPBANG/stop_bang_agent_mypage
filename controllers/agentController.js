@@ -1,50 +1,110 @@
 //Models
 const agentModel = require("../models/agentModel.js");
+const {httpRequest} = require('../utils/httpRequest.js');
+const jwt = require("jsonwebtoken");
 
 module.exports = {
   settings: (req, res) => {
-    agentModel.getAgentById(req.headers.userid, (result, err) => {
-      if (result === null) {
-        console.log("error occured: ", err);
-      } else {
-        res.json({
-          agent: result[0][0],
-          path: "settings"
-        });
+    let authToken;
+    try {
+      authToken = jwt.decode(req.cookies.authToken);
+    } catch(err) {
+    }
+    /* msa */
+    const postOptions = {
+      host: 'stop_bang_auth_DB',
+      port: process.env.PORT,
+      path: `/db/agent/findById`,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       }
-    });
+    };
+
+    const requestBody = {username: authToken.userId};
+    httpRequest(postOptions, requestBody)
+      .then(result => {
+        if (result === null) {
+          console.log("error occured: ", err);
+        } else {
+          res.json({
+            agent: result.body[0],
+            path: "settings"
+          });
+        }
+      });
   },
 
   updateSettings: (req, res) => {
-    const body = req.body;
-    agentModel.updateAgent(body.userId, body, (result, err) => {
-      if (result === null) {
-        console.log("error occured: ", err);
-      } else {
-        return res.status(302).redirect("/agent/settings");
+    /* msa */
+    const postOptions = {
+      host: 'stop_bang_auth_DB',
+      port: process.env.PORT,
+      path: `/db/agent/update`,
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
       }
-    });
+    };
+
+    const requestBody = req.body;
+    httpRequest(postOptions, requestBody)
+      .then(result => {
+        if (result === null) {
+          console.log("error occured: ", err);
+        } else {
+          return res.status(302).redirect("/agent/settings");
+        }
+      });
   },
   updatePassword: (req, res) => {
-    agentModel.updateAgentPassword(req.body.userId, req.body, (result, err) => {
-      if (result === null) {
-        if (err === "pwerror") {
-          res.json({ message: "입력한 비밀번호가 잘못되었습니다." });
-        }
-      } else {
-        res.redirect("/agent/settings");
+    /* msa */
+    const postOptions = {
+      host: 'stop_bang_auth_DB',
+      port: process.env.PORT,
+      path: `/db/agent/updatepw`,
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
       }
-    });
+    };
+
+    const requestBody = req.body;
+    httpRequest(postOptions, requestBody)
+      .then(result => {
+        if (result === null) {
+          if (err === "pwerror") {
+            res.json({ message: "입력한 비밀번호가 잘못되었습니다." });
+          }
+        } else {
+          res.redirect("/agent/settings");
+        }
+      });
   },
 
   deleteAccount: async (req, res) => {
     try {
-      await agentModel.deleteAccountProcess(req.body.userId);
-      res.clearCookie("userType");
-      res.clearCookie("authToken")
-      res.status(302).redirect("/");
+      /* msa */
+      const postOptions = {
+        host: 'stop_bang_auth_DB',
+        port: process.env.PORT,
+        path: `/db/agent/delete`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      };
+      const requestBody = req.body;
+
+      httpRequest(postOptions, requestBody)
+        .then(() => {
+          res.clearCookie("userType");
+          res.clearCookie("authToken");
+          return res.status(302).redirect("/");
+        });
     } catch (error) {
-      res.json({ message: error });
+      console.log(error);
+      res.status(500).json({ message: error });
     }
   }
 };
